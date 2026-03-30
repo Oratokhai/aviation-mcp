@@ -483,21 +483,18 @@ SHARED_CONNECT_JS = f"""
     import {{ App }} from "{EXT_APPS_CDN}";
     const app = new App({{ name: "AviationStack UI", version: "1.0.0" }});
     window.__mcpApp = app;
-    app.ontoolresult = ({{ content }}) => {{
-      const txt = content?.find(c => c.type === 'text');
-      if (txt) {{
-        try {{
-          const d = JSON.parse(txt.text);
-          if (window.__onData) window.__onData(d);
-        }} catch(e) {{
-          // structured_content comes through as text JSON
-          const el = document.getElementById('loading');
-          if (el) el.textContent = txt.text;
+app.ontoolresult = (result) => {{
+      const sc = result?.structuredContent
+               ?? result?.result?.structuredContent
+               ?? null;
+      const content = result?.content ?? result?.result?.content ?? [];
+      if (sc && window.__onData) {{ window.__onData(sc); return; }}
+      for (const block of (Array.isArray(content) ? content : [])) {{
+        if (block?.type === 'text' && block?.text) {{
+          try {{ const d = JSON.parse(block.text); if (window.__onData) {{ window.__onData(d); return; }} }} catch(e) {{}}
         }}
       }}
-      // Also handle structured_content directly
-      const sc = content?.structuredContent ?? null;
-      if (sc && window.__onData) window.__onData(sc);
+      console.log('ontoolresult payload:', JSON.stringify(result, null, 2));
     }};
     await app.connect();
     document.getElementById('loading')?.remove();
@@ -562,7 +559,7 @@ window.__onData = function(d) {
 
   const content = document.getElementById('content');
   content.style.display = '';
-  document.getElementById('loading')?.remove();
+  document.getElementById('loading')?.remove();˙
 
   if (!flights.length) {
     content.innerHTML = '<div class="empty-state">⚠ No flights found for the given parameters.</div>';
